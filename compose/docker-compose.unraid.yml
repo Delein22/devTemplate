@@ -3,8 +3,6 @@ services:
     build:
       context: ..
       dockerfile: docker/app.Dockerfile
-    # oder später:
-    # image: ghcr.io/Delein22/devTemplate:latest
     container_name: devTemplate
     restart: unless-stopped
     env_file:
@@ -13,10 +11,35 @@ services:
       - TZ=Europe/Berlin
       - NODE_ENV=production
       - PORT=3000
+      # Wichtig: App nutzt den Servicenamen "db" als Host
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
     ports:
       - "8080:3000"
+    depends_on:
+      db:
+        condition: service_healthy
     volumes:
       - /mnt/user/appdata/devTemplate/.next/cache:/app/.next/cache
+
+  db:
+    image: postgres:16
+    container_name: devTemplate-db
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+      - TZ=Europe/Berlin
+    volumes:
+      - /mnt/user/appdata/devTemplate/pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"   # optional; nur nötig, wenn du extern zugreifen willst
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
 networks:
   default:
     name: devTemplate_net
